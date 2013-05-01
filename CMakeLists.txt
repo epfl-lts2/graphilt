@@ -14,7 +14,7 @@ set( PROJECT_SOVERSION ${${PROJECT_NAME}_MAJOR_VERSION} )
 # to save doing so manually in every subdirectory.
 SET( CMAKE_INCLUDE_CURRENT_DIR ON )
 # CMAKE_MODULE_PATH
-#set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/" )
+set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/" )
 # 3rd Party dir
 set( 3RDPARTY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty" )
 
@@ -22,29 +22,30 @@ set( 3RDPARTY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty" )
 option( BUILD_TESTS "Build the test suite" ON )
 option( BUILD_TOOLS "Build standard tools" ON )
 option( BUILD_DOC "Build documentation" ON )
+option( BUILD_SHARED_LIBS "Build as shared LIBRARY" ON )
 
 #### LIBS
+
+# OpenCL
+if( ${CMAKE_SYSTEM_NAME} MATCHES "Darwin" )
+    include_directories("/opt/local/include")
+    set( CMAKE_EXE_LINKER_FLAGS "-framework OpenCL" )
+else()
+    find_package( OpenCL REQUIRED )
+    include_directories( ${OPENCL_INCLUDE_DIRS} )
+endif( ${CMAKE_SYSTEM_NAME} MATCHES "Darwin" )
+
 # Boost
-# set( Boost_USE_STATIC_LIBS ON )
-# set( Boost_USE_MULTITHREADED ON ) 
-# find_package( Boost COMPONENTS thread filesystem system graph serialization REQUIRED )
-# include_directories( ${Boost_INCLUDE_DIRS} )
+set( Boost_USE_STATIC_LIBS ON )
+set( Boost_USE_MULTITHREADED ON )
+find_package( Boost REQUIRED )
+#find_package( Boost COMPONENTS thread filesystem system graph serialization REQUIRED )
+include_directories( ${Boost_INCLUDE_DIRS} )
 
-# find_package( Threads REQUIRED )
-
-# if( WIN32 AND __COMPILER_GNU )
-#     # mingw-gcc fails to link boost::thread
-#     add_definitions( -DBOOST_THREAD_USE_LIB )
-# endif( WIN32 AND __COMPILER_GNU )
-
-# Readline
-#find_package( ReadLine REQUIRED )
-# Custom readline OS X is too old ...
-# set( ReadLine_DIR /usr/local/Cellar/readline/6.2.4 )
-# set( ReadLine_INCLUDE_DIR ${ReadLine_DIR}/include )
-# set( ReadLine_LIB_DIR ${ReadLine_DIR}/lib )
-# include_directories( ${ReadLine_INCLUDE_DIR} )
-# link_directories( ${ReadLine_LIB_DIR} )
+# ViennaCL
+set( VIENNACL_DIR ${3RDPARTY_DIR}/ViennaCL-1.4.2 )
+add_definitions( -DVIENNACL_WITH_OPENCL )
+include_directories( ${3RDPARTY_DIR}/include/ )
 
 #### GENERAL OPTIONS
 set( LIB_SUFFIX "" CACHE STRING "Define suffix of directory name (32/64)" )
@@ -57,6 +58,7 @@ set( DOC_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/doc CACHE PATH "Installation prefix
 # Configure output bin path
 set( EXECUTABLE_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/bin )
 set( CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/lib )
+set( CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/lib )
 
 # Check of resources folder exists, if not create it
 set( RES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/resources" )
@@ -65,12 +67,12 @@ if( NOT EXISTS ${RES_DIR} )
 endif()
 
 if( CMAKE_BUILD_TYPE STREQUAL "Release" )
-    add_definitions( -DQT_NO_DEBUG )
-    add_definitions( -DQT_NO_DEBUG_OUTPUT )
+#    add_definitions( -DQT_NO_DEBUG )
+#    add_definitions( -DQT_NO_DEBUG_OUTPUT )
     add_definitions( -O3 )
 elseif( CMAKE_BUILD_TYPE STREQUAL "Debug" )
     add_definitions( -DQT_DEBUG )
-    add_definitions( -DGZK_DEBUG )
+    add_definitions( -DGHT_DEBUG )
 endif()
 
 #### COMPILER SPECIFICS
@@ -123,7 +125,6 @@ if( BUILD_TESTS )
     include_directories( ${GTEST_INCLUDE_DIRECTORIES} )
     add_library( gtest STATIC ${GTEST_DIR}/src/gtest-all.cc ${GTEST_DIR}/src/gtest_main.cc )
     add_subdirectory( tests )
-
 endif( BUILD_TESTS )
 
 # DOC

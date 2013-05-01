@@ -1,12 +1,12 @@
 # Sources add all sources here
 set( SRCS
-    main.cpp
+    util/log.cpp
+    io/vector-io.h
 )
 
 # Public headers
 set( PUBLIC_HDRS
 )
-
 
 # All sources, add sources groupe here
 set( ALL_SRCS
@@ -17,42 +17,50 @@ set( ALL_SRCS
 set( LIBS_TO_LINK
     ${Boost_LIBRARIES}
     ${LIBCPLUSPLUS}
+    ${OPENCL_LIBRARIES}
 )
 
 #### TARGET
-# Shared library if testing or building tools
-add_library( lib${PROJECT_NAME}
-    SHARED
-    ${ALL_SRCS}
-)
+if( BUILD_SHARED_LIBS )
+    add_library( ${PROJECT_NAME}
+        SHARED
+        ${ALL_SRCS}
+    )
 
-set_target_properties( lib${PROJECT_NAME} PROPERTIES
-    VERSION ${PROJECT_VERSION}
-    SOVERSION ${PROJECT_SOVERSION}
-    INSTALL_NAME_DIR ${LIB_INSTALL_DIR}
-    DEFINE_SYMBOL GRAPHILT_API_EXPORTS
-)
+    set_target_properties( ${PROJECT_NAME} PROPERTIES
+        VERSION ${PROJECT_VERSION}
+        SOVERSION ${PROJECT_SOVERSION}
+        INSTALL_NAME_DIR ${LIB_INSTALL_DIR}
+        DEFINE_SYMBOL GRAPHILT_API_EXPORTS
+    )
 
-target_link_libraries( lib${PROJECT_NAME}
-    ${LIBS_TO_LINK}
-)
+    target_link_libraries( ${PROJECT_NAME}
+        ${LIBS_TO_LINK}
+    )
+endif( BUILD_SHARED_LIBS )
 
 # STATIC
 remove_definitions( -fvisibility=hidden -fvisibility-inlines-hidden )
-add_library( lib${PROJECT_NAME}_static
+add_library( ${PROJECT_NAME}_static
     STATIC
     ${ALL_SRCS}
 )
 
-target_link_libraries( lib${PROJECT_NAME}_static
+target_link_libraries( ${PROJECT_NAME}_static
     ${LIBS_TO_LINK}
 )
 
-# Executable
-add_executable( ${PROJECT_NAME} 
-    ${ALL_SRCS}
+## INSTALL LIBS AND EXECUTABLES
+install( TARGETS ${PROJECT_NAME}
+    FRAMEWORK DESTINATION ${FRAMEWORK_INSTALL_DIR}
+    LIBRARY DESTINATION ${LIB_INSTALL_DIR}
+    RUNTIME DESTINATION ${BIN_INSTALL_DIR}
+    ARCHIVE DESTINATION ${LIB_INSTALL_DIR}
 )
-target_link_libraries( ${PROJECT_NAME}
-    ${LIBS_TO_LINK}
-)
+
+## INSTALL PUBLIC HEADERS
+set( DEST ${INCLUDE_INSTALL_DIR}/${PROJECT_NAME} )
+install( FILES ${PUBLIC_HDRS} DESTINATION ${DEST} )
+
+
 

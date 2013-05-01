@@ -19,9 +19,10 @@ foreach(val RANGE ${len2})
     add_executable( ${test_name} ${test_src} )
     target_link_libraries( ${test_name}
         gtest
-        lib${PROJECT_NAME}_static
-        # ${Boost_LIBRARIES}
-        # ${LIBCPLUSPLUS}
+        ${PROJECT_NAME}_static
+        ${Boost_LIBRARIES}
+        ${LIBCPLUSPLUS}
+        ${OPENCL_LIBRARIES}
     )
     get_property( CONFIG_LOCATION TARGET ${test_name} PROPERTY LOCATION )
     add_test( NAME ${test_name} COMMAND ${test_name} )
