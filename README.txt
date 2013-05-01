@@ -1,5 +1,5 @@
 Graphilt : Graph filtering
-(c) Kirell Benzi, 2013
+(c) EPFL-LTS2, Kirell Benzi, 2013
 
 Primary Author : Kirell Benzi (first.last@epfl.ch)
 
