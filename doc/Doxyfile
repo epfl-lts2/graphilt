@@ -1,0 +1,11 @@
+PROJECT_NAME = "SnaSim"
+PROJECT_NUMBER = "0.1.0"
+OUTPUT_DIRECTORY = /Users/kikohs/work/sna-sim/build/app/doc
+INPUT = /Users/kikohs/work/sna-sim/src /Users/kikohs/work/sna-sim/tests
+EXTRACT_ALL = yes
+EXTRACT_PRIVATE = yes
+EXTRACT_STATIC = yes
+#Do not add anything here unless you need to. Doxygen already covers all
+#common formats like .c/.cc/.cxx/.c++/.cpp/.inl/.h/.hpp
+FILE_PATTERNS =
+RECURSIVE = yes

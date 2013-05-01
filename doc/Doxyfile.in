@@ -1,0 +1,11 @@
+PROJECT_NAME = "@PROJECT_NAME@"
+PROJECT_NUMBER = "@PROJECT_VERSION@"
+OUTPUT_DIRECTORY = @CMAKE_CURRENT_BINARY_DIR@/doc
+INPUT = @CMAKE_CURRENT_SOURCE_DIR@/src @CMAKE_CURRENT_SOURCE_DIR@/tests
+EXTRACT_ALL = yes
+EXTRACT_PRIVATE = yes
+EXTRACT_STATIC = yes
+#Do not add anything here unless you need to. Doxygen already covers all
+#common formats like .c/.cc/.cxx/.c++/.cpp/.inl/.h/.hpp
+FILE_PATTERNS =
+RECURSIVE = yes
