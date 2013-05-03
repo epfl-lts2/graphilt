@@ -8,7 +8,7 @@ macro(append_test test_name test_srcs)
 endmacro(append_test)
 
 # APPEND TESTS HERE
-append_test(ExampleTest Example.cpp)
+append_test(SnapParser SnapParser.cpp)
 
 list(LENGTH TESTS_SRCS len1)
 math(EXPR len2 "${len1} - 1")

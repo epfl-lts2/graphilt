@@ -31,28 +31,28 @@ namespace io {
 template <typename VectorType>
 void resize_vector( VectorType & vec, unsigned int size )
 {
-  vec.resize(size);
+    vec.resize(size);
 }
 
 template <typename VectorType>
 bool readVectorFromFile( const std::string& filename, VectorType& vec )
 {
-  typedef typename viennacl::result_of::value_type<VectorType>::type ScalarType;
-  std::ifstream file(filename.c_str());
-  if( !file ) return false;
+    typedef typename viennacl::result_of::value_type<VectorType>::type ScalarType;
+    std::ifstream file(filename.c_str());
+    if( !file ) return false;
 
-  unsigned int size;
-  file >> size;
-  
-  resize_vector(vec, size);
+    unsigned int size;
+    file >> size;
 
-  for( unsigned int i = 0; i < size; ++i ) {
-    ScalarType element;
-    file >> element;
-    vec[i] = element;
-  }
+    resize_vector(vec, size);
 
-  return true;
+    for( unsigned int i = 0; i < size; ++i ) {
+        ScalarType element;
+        file >> element;
+        vec[i] = element;
+    }
+
+    return true;
 }
 
 } // end namespace io

@@ -2,6 +2,9 @@
 set( SRCS
     util/log.cpp
     io/vector-io.h
+    io/matrix-io.h
+    io/parser/snap.h
+    io/parsers.h
 )
 
 # Public headers

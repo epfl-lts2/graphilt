@@ -16,10 +16,16 @@
 **
 ****************************************************************************/
 
-#include <iostream>
+#include <gtest/gtest.h>
+#include "io/parsers.h"
+#include "io/matrix-io.h"
 
-int main( int argc, char *argv[] )
+using namespace ght::io;
+
+TEST( ParseSnapFormat, UndirectedGraph )
 {
-    std::cout << "Hello Graphilt" << std::endl;
-    return 0;
+    std::string filename = "/Volumes/Storage/datasets/graphs/undirected/as-skitter.txt";
+    std::vector<std::map<uint32_t, int> > data;
+    EXPECT_EQ(parseSnapFormat(filename, data), true);
+    writeMatrixMarketFile(data, filename + ".mtx");
 }
