@@ -5,6 +5,7 @@ set( SRCS
     io/matrix-io.h
     io/parser/snap.h
     io/parsers.h
+    core/Engine.h
 )
 
 # Public headers

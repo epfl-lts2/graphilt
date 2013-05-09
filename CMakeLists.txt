@@ -47,6 +47,10 @@ set( VIENNACL_DIR ${3RDPARTY_DIR}/ViennaCL-1.4.2 )
 add_definitions( -DVIENNACL_WITH_OPENCL )
 include_directories( ${3RDPARTY_DIR}/include/ )
 
+# Eigen
+find_package(Eigen3 REQUIRED)
+include_directories( ${EIGEN3_INCLUDE_DIR} )
+
 #### GENERAL OPTIONS
 set( LIB_SUFFIX "" CACHE STRING "Define suffix of directory name (32/64)" )
 set( EXEC_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX} CACHE PATH "Installation prefix for executables and object code libraries" FORCE )
@@ -69,6 +73,7 @@ endif()
 if( CMAKE_BUILD_TYPE STREQUAL "Release" )
 #    add_definitions( -DQT_NO_DEBUG )
 #    add_definitions( -DQT_NO_DEBUG_OUTPUT )
+    add_definitions(-DNDEBUG)
     add_definitions( -O3 )
 elseif( CMAKE_BUILD_TYPE STREQUAL "Debug" )
     add_definitions( -DQT_DEBUG )

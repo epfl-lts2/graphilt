@@ -51,8 +51,40 @@ inline uint32_t lexical_cast( const std::string& arg )
 namespace ght {
 namespace io {
 
+namespace detail {
+
+template<class Matrix, class Scalar>
+void appendInMatrix( Matrix& matrix, uint32_t row, uint32_t col, Scalar val )
+{
+    matrix(row, col) += val;
+}
+
 template<class Scalar>
-bool parseSnapFormat( const std::string& filename, std::vector< std::map<uint32_t, Scalar> >& matrix )
+void appendInMatrix( std::vector< std::map<uint32_t, Scalar> >& matrix, uint32_t row, uint32_t col, Scalar val )
+{
+    // Default constructed value is 0
+    matrix[row][col] += val;
+}
+
+template<class Matrix>
+void resizeMatrix( Matrix& matrix, uint32_t row )
+{
+    matrix = Matrix(row, row);
+}
+
+template<class Scalar>
+void resizeMatrix( std::vector<std::map<uint32_t, Scalar> >& matrix, uint32_t row )
+{
+    matrix.resize(row);
+}
+
+
+} // end namespace detail
+
+//bool parseSnapFormat
+
+template<class Matrix>
+bool parseSnapFormat( const std::string& filename, Matrix& matrix )
 {
 //    typedef typename viennacl::result_of::value_type<MatrixType>::type ScalarType;
 
@@ -82,7 +114,7 @@ bool parseSnapFormat( const std::string& filename, std::vector< std::map<uint32_
                     edgeCount = boost::lexical_cast<uint32_t>(tokens.at(4));
                 }
                 catch( boost::bad_lexical_cast& ) {
-                    LOG(logERROR) << "parseSnapFormat invalid cast" << tokens.at(2);
+                    LOG(logERROR) << "parseSnapFormat invalid cast " << tokens.at(2);
                     return false;
                 }
             }
@@ -99,31 +131,70 @@ bool parseSnapFormat( const std::string& filename, std::vector< std::map<uint32_
     }
 
     try {
-        // Set Laplacian matrix size
-        matrix.resize(nodeCount);
+        // Set Laplacian matrix size, default constructed values should be set to 0
+        detail::resizeMatrix(matrix, nodeCount);
     } catch( std::bad_alloc& ) {
         LOG(logERROR) << "parseSnapFormat: caught bad alloc exception, dataset too large for RAM";
+        return false;
     } catch( const std::exception& e ) {
-        LOG(logERROR) << "parseSnapFormat: " << typeid(e).name();
+        LOG(logERROR) << "parseSnapFormat: " << e.what();
+        return false;
     } catch(...) {
         LOG(logERROR) << "parseSnapFormat: unknown exception";
+        return false;
     }
 
-    // Go backwards one line
+//    // Go backwards one line
     long pos = file.tellg();
-    file.seekg(pos - (read_line.size() + 1));
+    long startPos = pos - (read_line.size() + 1);
+    file.seekg(startPos);
+
+    // Fill Map for Ids to matrix rows
+    std::map<uint32_t, uint32_t> indexMap;
     // Actual parsing starts here
-    for( uint32_t i = 0; i < edgeCount; ++i ) {
+    uint32_t idx = 0;
+    for( uint32_t i = 0; i < edgeCount && !file.eof(); ++i ) {
         uint32_t startId = kMax;
         uint32_t endId = kMax;
         file >> startId >> endId;
-        if( startId == endId || startId == kMax || endId == kMax )
+        if( startId == endId )
             continue;
+        if( startId == kMax || endId == kMax ) {
+            LOG(logWARNING) << "Startid or EndId == kMax";
+            break;
+        }
+
+        uint32_t row = 0;
+        uint32_t col = 0;
+
+        auto it = indexMap.find(startId);
+        // Not in map
+        if( it == indexMap.end() ) {
+            indexMap[startId] = idx;
+            row = idx;
+            idx++;
+        }
+        else {
+            row = it->second;
+        }
+
+        it = indexMap.find(endId);
+        if( it == indexMap.end() ) {
+            indexMap[endId] = idx;
+            col = idx;
+            idx++;
+        }
+        else {
+            col = it->second;
+        }
         // Add on diagonal
-        matrix[startId][startId] += kDefaultWeight;
+        detail::appendInMatrix(matrix, row, row, kDefaultWeight);
         // Add edge weight
-        matrix[startId][endId] = -kDefaultWeight;
+        detail::appendInMatrix(matrix, row, col, -kDefaultWeight);
     }
+
+    file.close();
+
     return true;
 }
 

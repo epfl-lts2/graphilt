@@ -19,13 +19,51 @@
 #include <gtest/gtest.h>
 #include "io/parsers.h"
 #include "io/matrix-io.h"
+#include "util/log.h"
 
+#include <boost/numeric/ublas/matrix_sparse.hpp>
+
+using namespace ght;
 using namespace ght::io;
+using namespace boost::numeric;
 
-TEST( ParseSnapFormat, UndirectedGraph )
+typedef int ScalarType;
+
+TEST( ParseSnapFormat, UndirectedGraphVector )
 {
-    std::string filename = "/Volumes/Storage/datasets/graphs/undirected/as-skitter.txt";
-    std::vector<std::map<uint32_t, int> > data;
-    EXPECT_EQ(parseSnapFormat(filename, data), true);
-    writeMatrixMarketFile(data, filename + ".mtx");
+//    std::string filename = "/Volumes/Storage/datasets/graphs/undirected/as-skitter.txt";
+    std::string filename = "/Volumes/Storage/datasets/graphs/undirected/com-lj.ungraph.txt";
+    auto* data = new std::vector<std::map<uint32_t, ScalarType> >();
+
+    try {
+        LOG(logDEBUG) << "Start parsing " << filename;
+        bool ok = parseSnapFormat(filename, *data);
+        LOG(logDEBUG) << "End parsing";
+        EXPECT_EQ(ok, true);
+        writeMatrixMarketFile(*data, filename + ".mtx");
+    } catch( std::exception& e ) {
+        std::cout << e.what() << std::endl;
+    }
+
+    delete data;
 }
+
+//TEST( ParseSnapFormat, UndirectedGraphMatrix )
+//{
+////    std::string filename = "/Volumes/Storage/datasets/graphs/undirected/as-skitter.txt";
+//    std::string filename = "/Volumes/Storage/datasets/graphs/undirected/com-lj.ungraph.txt";
+//    auto* data = new ublas::compressed_matrix<ScalarType>();
+
+//    try {
+//        LOG(logDEBUG) << "Start parsing " << filename;
+//        bool ok = parseSnapFormat(filename, *data);
+//        LOG(logDEBUG) << "End parsing";
+//        EXPECT_EQ(ok, true);
+////        writeMatrixMarketFile(*data, filename + ".mtx");
+//    } catch( std::exception& e ) {
+//        std::cout << e.what() << std::endl;
+//    }
+
+//    delete data;
+//}
+

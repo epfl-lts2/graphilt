@@ -9,6 +9,7 @@ endmacro(append_test)
 
 # APPEND TESTS HERE
 append_test(SnapParser SnapParser.cpp)
+append_test(EngineTest EngineTest.cpp)
 
 list(LENGTH TESTS_SRCS len1)
 math(EXPR len2 "${len1} - 1")
