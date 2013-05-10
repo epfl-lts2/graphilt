@@ -20,6 +20,16 @@
 #define GHT_ENGINE_H
 
 #include <vector>
+
+#include <boost/numeric/ublas/io.hpp>
+#include <boost/numeric/ublas/matrix_sparse.hpp>
+#include <boost/numeric/ublas/operation.hpp>
+#include <boost/numeric/ublas/operation_sparse.hpp>
+#include <boost/numeric/ublas/lu.hpp>
+
+// Must be set if you want to use ViennaCL algorithms on ublas objects
+#define VIENNACL_WITH_UBLAS 1
+
 #include <viennacl/ocl/platform.hpp>
 #include <viennacl/meta/result_of.hpp>
 #include <viennacl/scalar.hpp>
@@ -29,6 +39,8 @@
 
 #include "util/log.h"
 
+namespace bn = boost::numeric;
+
 namespace ght {
 namespace core {
 
@@ -37,19 +49,37 @@ class Engine
 public:
     Engine() {}
 
-    template<typename MatrixType, typename VectorType>
-    static bool runCPU( const MatrixType& laplacian, const VectorType& signal,
-              const std::vector<std::vector<float> >& coeff )
+    template<typename ScalarType>
+    static bool runNaiveCPU( const bn::ublas::compressed_matrix<ScalarType>& laplacian,
+                             const bn::ublas::vector<ScalarType>& signal,
+                 const std::vector<std::vector<ScalarType> >& coeff,
+                 std::vector<std::vector<ScalarType> >& result )
     {
-        typedef typename viennacl::result_of::value_type<VectorType>::type VType;
-        typedef typename viennacl::result_of::value_type<MatrixType>::type MType;
-
-
+        size_t nbScales = coeff.size();
+        bn::ublas::vector<ScalarType> temp(signal.size());
+        result.resize(nbScales);
+        // For earch scale
+        for( size_t i = 0; i < nbScales; ++i ) {
+            // For each scale coefficients
+            size_t scaleCoeffs = coeff.at(i).size();
+            for( size_t j = 0; j < scaleCoeffs; ++j ) {
+                if( j == 0 ) {
+                    temp = bn::ublas::prod(laplacian, signal);
+                    temp *= coeff[i][j];
+                }
+                else {
+                    temp += bn::ublas::prod(laplacian, temp);
+                    temp *= coeff[i][j];
+                }
+            }
+            result[i].resize(temp.size());
+            std::copy(temp.begin(), temp.end(), result[i].begin());
+        }
         return true;
     }
 
     template<typename MatrixType, typename VectorType, typename ScalarType>
-    static bool runGPU( const MatrixType& laplacian, const VectorType& signal,
+    static bool runNaiveGPU( const MatrixType& laplacian, const VectorType& signal,
                  const std::vector<std::vector<ScalarType> >& coeff,
                  std::vector<std::vector<ScalarType> >& result )
     {
@@ -62,15 +92,19 @@ public:
         result.resize(nbScales);
 
         // Copy
-        viennacl::copy(signal, gSignal);
-        viennacl::copy(laplacian, gLaplacian);
-        viennacl::copy(coeff, gCoeff);
+        try {
+            viennacl::copy(signal, gSignal);
+            viennacl::copy(laplacian, gLaplacian);
+            viennacl::copy(coeff, gCoeff);
+        } catch( std::exception& e ) {
+            LOG(logERROR) << "Engine::runNaiveGPU: " << e.what();
+            return false;
+        }
 
         // For earch scale
         for( size_t i = 0; i < nbScales; ++i ) {
             // For each scale coefficients
             size_t scaleCoeffs = coeff.at(i).size();
-            result[i].resize(scaleCoeffs);
             for( size_t j = 0; j < scaleCoeffs; ++j ) {
                 if( j == 0 ) {
                     gTemp = viennacl::linalg::prod(gLaplacian, gSignal);
@@ -82,6 +116,7 @@ public:
                 }
             }
             // Copy back results
+            result[i].resize(gTemp.size());
             viennacl::copy(gTemp, result[i]);
         }
         return true;

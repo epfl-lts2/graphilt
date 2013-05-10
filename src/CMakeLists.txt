@@ -1,6 +1,7 @@
 # Sources add all sources here
 set( SRCS
     util/log.cpp
+    util/benchmark.h
     io/vector-io.h
     io/matrix-io.h
     io/parser/snap.h

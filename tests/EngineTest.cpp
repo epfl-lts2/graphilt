@@ -24,13 +24,9 @@
 // ublas includes
 //
 #include <boost/numeric/ublas/io.hpp>
-#include <boost/numeric/ublas/triangular.hpp>
 #include <boost/numeric/ublas/matrix_sparse.hpp>
-#include <boost/numeric/ublas/matrix.hpp>
-#include <boost/numeric/ublas/matrix_proxy.hpp>
 #include <boost/numeric/ublas/operation.hpp>
 #include <boost/numeric/ublas/operation_sparse.hpp>
-#include <boost/numeric/ublas/io.hpp>
 #include <boost/numeric/ublas/lu.hpp>
 
 // Must be set if you want to use ViennaCL algorithms on ublas objects
@@ -41,18 +37,64 @@
 #include "core/Engine.h"
 #include "io/matrix-io.h"
 #include "io/vector-io.h"
+#include "util/benchmark.h"
 
 using namespace ght;
+using namespace ght::util;
 using namespace ght::core;
 
 using namespace boost::numeric;
+
+namespace  {
+
+template<typename ScalarType>
+std::vector<std::vector<ScalarType> > genCoeff( int scales, int numCoeff )
+{
+    std::vector<std::vector<ScalarType> > coeff(scales);
+    for( int i = 0; i < scales; ++i ) {
+        std::vector<ScalarType> scale(numCoeff);
+        for( int j = 0; j < numCoeff; ++j ) {
+            scale[j] = j+1;
+        }
+        coeff[i]= scale;
+    }
+    return coeff;
+}
+
+template<typename ScalarType>
+std::vector<ScalarType> genSignal( int size )
+{
+    std::vector<ScalarType> signal(size);
+    for( int i = 0; i < size; ++i ) {
+        signal[i] = i+1;
+    }
+    return signal;
+}
+
+template<typename VectorType>
+VectorType genSignal2( int size )
+{
+    VectorType signal(size);
+    for( int i = 0; i < size; ++i ) {
+        signal(i) = i+1;
+    }
+    return signal;
+}
+
+
+} // end namespace anonymous
+
+static const int kNBSCALES = 6;
+static const int kFILTERORDER = 5;
+static const std::string kGRAPHPATH = "../resources/sensor2000.mtx";
 
 TEST( EngineTest, SmallGraph )
 {
 //    typedef float       ScalarType;
 //    ublas::compressed_matrix<ScalarType> A;
-//    if( !io::readMatrixMarketFile(A, "../resources/testdata/mat65k.mtx") ) {
+//    if( io::readMatrixMarketFile(A, "../resources/testdata/mat65k.mtx") <= 1 ) {
 //      std::cout << "Error reading Matrix file" << std::endl;
+//      return;
 //    }
 //    size_t mSize = A.nnz() * sizeof(ScalarType);
 //    Engine engine;
@@ -65,8 +107,9 @@ TEST( EngineTest, TooBigGraph )
 //    typedef float       ScalarType;
 //    ublas::compressed_matrix<ScalarType> A;
 //    std::string filename = "/Volumes/Storage/datasets/graphs/undirected/com-lj.ungraph.txt.mtx";
-//    if( !io::readMatrixMarketFile(A, filename) ) {
-//      std::cout << "Error reading Matrix file" << std::endl;
+//    if( io::readMatrixMarketFile(A, filename) <= 1 ) {
+//        ASSERT_TRUE(false);
+//        return;
 //    }
 //    size_t mSize = A.nnz() * sizeof(ScalarType);
 //    Engine engine;
@@ -93,14 +136,69 @@ TEST( EngineTest, GPU1 )
         rhs[i] = i;
 
     // Coefficients
-    std::vector<std::vector<ScalarType> > coeff;
-    std::vector<ScalarType> coeff0;
-    for( size_t i = 0; i < size; ++i )
-        coeff0.push_back(i);
-    coeff.push_back(coeff0);
+    std::vector<std::vector<ScalarType> > coeff = genCoeff<ScalarType>(3,3);
 
     // Final
     std::vector<std::vector<ScalarType> > result;
-    bool ok = Engine::runGPU(ublas_matrix, rhs, coeff, result);
+    bool ok = Engine::runNaiveGPU(ublas_matrix, rhs, coeff, result);
+    EXPECT_EQ(ok, true);
 }
+
+TEST( EngineTest, CPU )
+{
+    Timer timer;
+    double exec_time;
+    typedef float ScalarType;
+    std::vector<std::map<uint32_t, ScalarType> > B;
+    if( io::readMatrixMarketFile(B, kGRAPHPATH) <= 1 ) {
+        ASSERT_TRUE(false);
+        return;
+    }
+
+    ublas::compressed_matrix<ScalarType> A(B.size(), B.size());
+    for( size_t i = 0; i < B.size(); ++i ) {
+        for( auto it = B.at(i).begin(); it != B.at(i).end(); ++it ) {
+            A(i, it->first) = it->second;
+        }
+    }
+
+    auto signal = genSignal2<ublas::vector<ScalarType> >(A.size1());
+    auto coeff = genCoeff<ScalarType>(kNBSCALES, kFILTERORDER);
+
+    std::vector<std::vector<ScalarType> > result;
+    timer.start();
+    bool ok = Engine::runNaiveCPU(A, signal, coeff, result);
+    exec_time = timer.get();
+    LOG(logINFO) << " - CPU Execution time: " << exec_time;
+    EXPECT_EQ(ok, true);
+}
+
+
+
+TEST( EngineTest, GPU2 )
+{
+    Timer timer;
+    double exec_time;
+    typedef float ScalarType;
+    std::vector<std::map<uint32_t, ScalarType> > A;
+    if( io::readMatrixMarketFile(A, kGRAPHPATH) <= 1 ) {
+        ASSERT_TRUE(false);
+        return;
+    }
+
+    auto signal = genSignal<ScalarType>(A.size());
+    auto coeff = genCoeff<ScalarType>(kNBSCALES, kFILTERORDER);
+
+    std::vector<std::vector<ScalarType> > result;
+    timer.start();
+    bool ok = Engine::runNaiveGPU(A, signal, coeff, result);
+    exec_time = timer.get();
+    LOG(logINFO) << " - GPU Execution time: " << exec_time;
+    EXPECT_EQ(ok, true);
+}
+
+
+
+
+
 
