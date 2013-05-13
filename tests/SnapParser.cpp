@@ -31,8 +31,8 @@ typedef int ScalarType;
 
 TEST( ParseSnapFormat, UndirectedGraphVector )
 {
-//    std::string filename = "/Volumes/Storage/datasets/graphs/undirected/as-skitter.txt";
-    std::string filename = "/Volumes/Storage/datasets/graphs/undirected/com-lj.ungraph.txt";
+//    std::string filename = "../resources/as-skitter.txt";
+    std::string filename = "../resources/com-lj.ungraph.txt";
     auto* data = new std::vector<std::map<uint32_t, ScalarType> >();
 
     try {

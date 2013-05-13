@@ -57,23 +57,23 @@ public:
     {
         size_t nbScales = coeff.size();
         bn::ublas::vector<ScalarType> temp(signal.size());
+        bn::ublas::vector<ScalarType> res(signal.size());
         result.resize(nbScales);
         // For earch scale
         for( size_t i = 0; i < nbScales; ++i ) {
+            result[i].resize(temp.size());
             // For each scale coefficients
             size_t scaleCoeffs = coeff.at(i).size();
-            for( size_t j = 0; j < scaleCoeffs; ++j ) {
+            for( size_t j = 1; j < scaleCoeffs; ++j ) {
                 if( j == 0 ) {
                     temp = bn::ublas::prod(laplacian, signal);
-                    temp *= coeff[i][j];
                 }
-                else {
-                    temp += bn::ublas::prod(laplacian, temp);
-                    temp *= coeff[i][j];
+                else { // Recurrence relation
+                    temp = bn::ublas::prod(laplacian, temp);
                 }
+                res += temp * coeff[i][j];
             }
-            result[i].resize(temp.size());
-            std::copy(temp.begin(), temp.end(), result[i].begin());
+            std::copy(res.begin(), res.end(), result[i].begin());
         }
         return true;
     }
@@ -85,12 +85,13 @@ public:
     {
         // Init GPU values
         size_t nbScales = coeff.size();
-        viennacl::vector<ScalarType> gSignal(signal.size());
-        viennacl::vector<ScalarType> gTemp(signal.size());
-        viennacl::compressed_matrix<ScalarType> gLaplacian(signal.size(), signal.size());
+        size_t signalSize = signal.size();
+        viennacl::vector<ScalarType> gSignal(signalSize);
+        viennacl::vector<ScalarType> gCombLaplacian(signalSize);
+        viennacl::vector<ScalarType> gResult(signalSize);
+        viennacl::compressed_matrix<ScalarType> gLaplacian(signalSize, signalSize);
         viennacl::matrix<ScalarType> gCoeff(nbScales, coeff.at(0).size());
         result.resize(nbScales);
-
         // Copy
         try {
             viennacl::copy(signal, gSignal);
@@ -100,24 +101,23 @@ public:
             LOG(logERROR) << "Engine::runNaiveGPU: " << e.what();
             return false;
         }
-
         // For earch scale
         for( size_t i = 0; i < nbScales; ++i ) {
             // For each scale coefficients
+            result[i].resize(signalSize);
             size_t scaleCoeffs = coeff.at(i).size();
-            for( size_t j = 0; j < scaleCoeffs; ++j ) {
+            for( size_t j = 1; j < scaleCoeffs; ++j ) {
                 if( j == 0 ) {
-                    gTemp = viennacl::linalg::prod(gLaplacian, gSignal);
-                    gTemp *= gCoeff(i,j);
+                    gCombLaplacian = viennacl::linalg::prod(gLaplacian, gSignal);
                 }
-                else {
-                    gTemp += viennacl::linalg::prod(gLaplacian, gTemp);
-                    gTemp *= gCoeff(i,j);
+                else { // Recurrence relation
+                    gCombLaplacian = viennacl::linalg::prod(gLaplacian, gCombLaplacian);
                 }
+                gResult += gCombLaplacian * gCoeff(i,j);
             }
+
             // Copy back results
-            result[i].resize(gTemp.size());
-            viennacl::copy(gTemp, result[i]);
+            viennacl::copy(gResult, result[i]);
         }
         return true;
     }

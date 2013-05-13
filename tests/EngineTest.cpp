@@ -20,6 +20,8 @@
 #ifndef NDEBUG
  #define NDEBUG
 #endif
+
+#include <iostream>
 //
 // ublas includes
 //
@@ -38,6 +40,7 @@
 #include "io/matrix-io.h"
 #include "io/vector-io.h"
 #include "util/benchmark.h"
+#include "util/log.h"
 
 using namespace ght;
 using namespace ght::util;
@@ -81,12 +84,31 @@ VectorType genSignal2( int size )
     return signal;
 }
 
+template<typename ScalarType>
+bool loadGraph( const std::string& filename, std::vector<std::map<uint32_t, ScalarType> >& A )
+{
+    LOG(logINFO) << "Loading graph: " << filename;
+    if( io::readMatrixMarketFile(A, filename) <= 1 ) {
+        return false;
+    }
+    return true;
+}
 
 } // end namespace anonymous
 
-static const int kNBSCALES = 6;
-static const int kFILTERORDER = 5;
-static const std::string kGRAPHPATH = "../resources/sensor2000.mtx";
+static const int kNBSCALES = 10;
+static const int kFILTERORDER = 15;
+//static const std::string kGRAPHPATH = "../resources/as-skitter.txt.mtx";
+//static const std::string kGRAPHPATH = "../resources/com-lj.ungraph.txt.mtx";
+//static const std::string kGRAPHPATH = "../resources/randomregular-10000-50.mtx";
+static const std::string kGRAPHPATH = "../resources/randomregular-2000-30.mtx";
+//static const std::string kGRAPHPATH = "../resources/comet-10000-50.mtx";
+//static const std::string kGRAPHPATH = "../resources/minnesota.mtx";
+
+double gCPUTime = 0;
+typedef float ScalarType;
+std::vector<std::map<uint32_t, ScalarType> > kA;
+bool ok = loadGraph(kGRAPHPATH, kA);
 
 TEST( EngineTest, SmallGraph )
 {
@@ -148,16 +170,11 @@ TEST( EngineTest, CPU )
 {
     Timer timer;
     double exec_time;
-    typedef float ScalarType;
-    std::vector<std::map<uint32_t, ScalarType> > B;
-    if( io::readMatrixMarketFile(B, kGRAPHPATH) <= 1 ) {
-        ASSERT_TRUE(false);
-        return;
-    }
+    ASSERT_TRUE(ok);
 
-    ublas::compressed_matrix<ScalarType> A(B.size(), B.size());
-    for( size_t i = 0; i < B.size(); ++i ) {
-        for( auto it = B.at(i).begin(); it != B.at(i).end(); ++it ) {
+    ublas::compressed_matrix<ScalarType> A(kA.size(), kA.size());
+    for( size_t i = 0; i < kA.size(); ++i ) {
+        for( auto it = kA.at(i).begin(); it != kA.at(i).end(); ++it ) {
             A(i, it->first) = it->second;
         }
     }
@@ -169,31 +186,26 @@ TEST( EngineTest, CPU )
     timer.start();
     bool ok = Engine::runNaiveCPU(A, signal, coeff, result);
     exec_time = timer.get();
+    gCPUTime = exec_time;
     LOG(logINFO) << " - CPU Execution time: " << exec_time;
     EXPECT_EQ(ok, true);
 }
-
-
 
 TEST( EngineTest, GPU2 )
 {
     Timer timer;
     double exec_time;
-    typedef float ScalarType;
-    std::vector<std::map<uint32_t, ScalarType> > A;
-    if( io::readMatrixMarketFile(A, kGRAPHPATH) <= 1 ) {
-        ASSERT_TRUE(false);
-        return;
-    }
 
-    auto signal = genSignal<ScalarType>(A.size());
+    ASSERT_TRUE(ok);
+    auto signal = genSignal<ScalarType>(kA.size());
     auto coeff = genCoeff<ScalarType>(kNBSCALES, kFILTERORDER);
 
     std::vector<std::vector<ScalarType> > result;
     timer.start();
-    bool ok = Engine::runNaiveGPU(A, signal, coeff, result);
+    bool ok = Engine::runNaiveGPU(kA, signal, coeff, result);
     exec_time = timer.get();
     LOG(logINFO) << " - GPU Execution time: " << exec_time;
+    LOG(logINFO) << " - GPU speedup x" << gCPUTime / exec_time;
     EXPECT_EQ(ok, true);
 }
 
