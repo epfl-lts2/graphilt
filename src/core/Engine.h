@@ -36,6 +36,7 @@
 #include <viennacl/vector.hpp>
 #include <viennacl/compressed_matrix.hpp>
 #include <viennacl/linalg/prod.hpp>
+#include <viennacl/matrix_proxy.hpp>
 
 #include "util/log.h"
 
@@ -64,8 +65,9 @@ public:
             result[i].resize(temp.size());
             // For each scale coefficients
             size_t scaleCoeffs = coeff.at(i).size();
+            res = signal * coeff[i][0]; // Init bias
             for( size_t j = 1; j < scaleCoeffs; ++j ) {
-                if( j == 0 ) {
+                if( j == 1 ) {
                     temp = bn::ublas::prod(laplacian, signal);
                 }
                 else { // Recurrence relation
@@ -106,19 +108,71 @@ public:
             // For each scale coefficients
             result[i].resize(signalSize);
             size_t scaleCoeffs = coeff.at(i).size();
+            gResult = gSignal * gCoeff(i,0); // first term bias
             for( size_t j = 1; j < scaleCoeffs; ++j ) {
-                if( j == 0 ) {
+                if( j == 1 ) {
                     gCombLaplacian = viennacl::linalg::prod(gLaplacian, gSignal);
                 }
                 else { // Recurrence relation
                     gCombLaplacian = viennacl::linalg::prod(gLaplacian, gCombLaplacian);
                 }
+//                gResult += gCombLaplacian; // temp
                 gResult += gCombLaplacian * gCoeff(i,j);
             }
 
             // Copy back results
             viennacl::copy(gResult, result[i]);
         }
+        return true;
+    }
+
+    template<typename MatrixType, typename ScalarType>
+    static bool runGPU( const MatrixType& laplacian, const std::vector<ScalarType>& signal,
+                 const std::vector<std::vector<ScalarType> >& coeff,
+                 std::vector<std::vector<ScalarType> >& result )
+    {
+        typedef viennacl::vector<ScalarType> VCLVector;
+        typedef viennacl::matrix<ScalarType> VCLMatrix;
+        // Init GPU values
+        size_t nbScales = coeff.size();
+        size_t signalSize = signal.size();
+        size_t filterOrder = coeff.at(0).size(); // tmp
+
+        VCLVector gCombLaplacian(signalSize);
+        viennacl::compressed_matrix<ScalarType> gLaplacian(signalSize, signalSize);
+        VCLMatrix gCoeff(nbScales, filterOrder);
+        VCLMatrix gResult(nbScales, signalSize);
+        VCLVector gSignalVector(signalSize);
+
+        // Copy to GPU
+        viennacl::fast_copy(signal, gSignalVector);
+        viennacl::copy(laplacian, gLaplacian);
+        viennacl::copy(coeff, gCoeff);
+
+        // First coeff
+        viennacl::range coeffRow(0, coeff.size());
+        viennacl::range coeffCol(0, 1); // 1 column only
+        viennacl::matrix_range<VCLMatrix> currentCoeffs = viennacl::project(gCoeff, coeffRow, coeffCol);
+        // Init result matrix
+        gResult = viennacl::linalg::prod(currentCoeffs, VCLMatrix(gSignalVector.handle().opencl_handle(), signalSize, 1));
+
+        // 2nd coeff, first Laplacian
+        gCombLaplacian = viennacl::linalg::prod(gLaplacian, gSignalVector);
+        VCLMatrix gCombLaplacianMat(gCombLaplacian.handle().opencl_handle(), 1, signalSize);
+        gResult += viennacl::linalg::prod(currentCoeffs, gCombLaplacianMat);
+
+        // 3rd coeff and above
+        for( size_t i = 2; i < filterOrder; ++i ) {
+            // Get current coefficients for filter order
+            viennacl::range coeffCol(i, i+1); // 1 column only
+            viennacl::matrix_range<VCLMatrix> currentCoeffs = viennacl::project(gCoeff, coeffRow, coeffCol);
+
+            gCombLaplacian = viennacl::linalg::prod(gLaplacian, gCombLaplacian);
+            // Promote to matrix
+            VCLMatrix gCombLaplacianMat(gCombLaplacian.handle().opencl_handle(), 1, signalSize);
+            gResult += viennacl::linalg::prod(currentCoeffs, gCombLaplacianMat);
+        }
+        viennacl::copy(gResult, result);
         return true;
     }
 

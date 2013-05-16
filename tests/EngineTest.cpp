@@ -57,7 +57,7 @@ std::vector<std::vector<ScalarType> > genCoeff( int scales, int numCoeff )
     for( int i = 0; i < scales; ++i ) {
         std::vector<ScalarType> scale(numCoeff);
         for( int j = 0; j < numCoeff; ++j ) {
-            scale[j] = j+1;
+            scale[j] = j+2;
         }
         coeff[i]= scale;
     }
@@ -96,16 +96,17 @@ bool loadGraph( const std::string& filename, std::vector<std::map<uint32_t, Scal
 
 } // end namespace anonymous
 
-static const int kNBSCALES = 10;
-static const int kFILTERORDER = 15;
+static const int kNBSCALES = 5;
+static const int kFILTERORDER = 8;
 //static const std::string kGRAPHPATH = "../resources/as-skitter.txt.mtx";
 //static const std::string kGRAPHPATH = "../resources/com-lj.ungraph.txt.mtx";
 //static const std::string kGRAPHPATH = "../resources/randomregular-10000-50.mtx";
-static const std::string kGRAPHPATH = "../resources/randomregular-2000-30.mtx";
-//static const std::string kGRAPHPATH = "../resources/comet-10000-50.mtx";
+//static const std::string kGRAPHPATH = "../resources/randomregular-2000-30.mtx";
+static const std::string kGRAPHPATH = "../resources/comet-10000-50.mtx";
 //static const std::string kGRAPHPATH = "../resources/minnesota.mtx";
 
 double gCPUTime = 0;
+double gGPUNAIVE = 0;
 typedef float ScalarType;
 std::vector<std::map<uint32_t, ScalarType> > kA;
 bool ok = loadGraph(kGRAPHPATH, kA);
@@ -191,7 +192,7 @@ TEST( EngineTest, CPU )
     EXPECT_EQ(ok, true);
 }
 
-TEST( EngineTest, GPU2 )
+TEST( EngineTest, NAIVEGPU )
 {
     Timer timer;
     double exec_time;
@@ -204,10 +205,32 @@ TEST( EngineTest, GPU2 )
     timer.start();
     bool ok = Engine::runNaiveGPU(kA, signal, coeff, result);
     exec_time = timer.get();
+    gGPUNAIVE = exec_time;
     LOG(logINFO) << " - GPU Execution time: " << exec_time;
     LOG(logINFO) << " - GPU speedup x" << gCPUTime / exec_time;
     EXPECT_EQ(ok, true);
 }
+
+TEST( EngineTest, GPU2 )
+{
+    Timer timer;
+    double exec_time;
+
+    ASSERT_TRUE(ok);
+    auto signal = genSignal<ScalarType>(kA.size());
+    auto coeff = genCoeff<ScalarType>(kNBSCALES, kFILTERORDER);
+
+    std::vector<std::vector<ScalarType> > result;
+    timer.start();
+    bool ok = Engine::runGPU2(kA, signal, coeff, result);
+    exec_time = timer.get();
+    LOG(logINFO) << " - GPU Execution time: " << exec_time;
+    LOG(logINFO) << " - GPU speedup x" << gCPUTime / exec_time;
+    EXPECT_EQ(ok, true);
+}
+
+
+
 
 
 
