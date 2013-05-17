@@ -101,13 +101,13 @@ static const int kFILTERORDER = 8;
 //static const std::string kGRAPHPATH = "../resources/as-skitter.txt.mtx";
 //static const std::string kGRAPHPATH = "../resources/com-lj.ungraph.txt.mtx";
 //static const std::string kGRAPHPATH = "../resources/randomregular-10000-50.mtx";
-//static const std::string kGRAPHPATH = "../resources/randomregular-2000-30.mtx";
-static const std::string kGRAPHPATH = "../resources/comet-10000-50.mtx";
+static const std::string kGRAPHPATH = "../resources/randomregular-2000-30.mtx";
+//static const std::string kGRAPHPATH = "../resources/comet-10000-50.mtx";
 //static const std::string kGRAPHPATH = "../resources/minnesota.mtx";
 
 double gCPUTime = 0;
 double gGPUNAIVE = 0;
-typedef float ScalarType;
+typedef double ScalarType;
 std::vector<std::map<uint32_t, ScalarType> > kA;
 bool ok = loadGraph(kGRAPHPATH, kA);
 
@@ -222,7 +222,7 @@ TEST( EngineTest, GPU2 )
 
     std::vector<std::vector<ScalarType> > result;
     timer.start();
-    bool ok = Engine::runGPU2(kA, signal, coeff, result);
+    bool ok = Engine::runGPU(kA, signal, coeff, result);
     exec_time = timer.get();
     LOG(logINFO) << " - GPU Execution time: " << exec_time;
     LOG(logINFO) << " - GPU speedup x" << gCPUTime / exec_time;

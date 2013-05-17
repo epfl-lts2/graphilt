@@ -2,11 +2,13 @@
 set( SRCS
     util/log.cpp
     util/benchmark.h
+    util/maths.h
     io/vector-io.h
     io/matrix-io.h
     io/parser/snap.h
     io/parsers.h
     core/Engine.h
+    core/FilterFactory.h
 )
 
 # Public headers

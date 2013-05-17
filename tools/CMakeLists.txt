@@ -13,3 +13,9 @@ add_executable( PlateformInfo plateformInfo.cpp )
 target_link_libraries( PlateformInfo
     ${LIBS_TO_LINK}
 )
+
+# Demo1
+add_executable( Demo1 demo1.cpp )
+target_link_libraries( Demo1
+    ${LIBS_TO_LINK}
+)

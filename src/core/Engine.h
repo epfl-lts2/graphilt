@@ -37,23 +37,46 @@
 #include <viennacl/compressed_matrix.hpp>
 #include <viennacl/linalg/prod.hpp>
 #include <viennacl/matrix_proxy.hpp>
+#include <viennacl/linalg/power_iter.hpp>
+#include <viennacl/linalg/lanczos.hpp>
 
 #include "util/log.h"
+#include "util/benchmark.h"
+#include "io/matrix-io.h"
 
 namespace bn = boost::numeric;
+static const double kERROR_FACTOR = 1.01;
 
 namespace ght {
 namespace core {
+
+// Template typedefs
+// boost
+template <typename ScalarType>
+using UMatrix = bn::ublas::compressed_matrix<ScalarType>;
+template <typename ScalarType>
+using UVector = bn::ublas::vector<ScalarType>;
+// Std
+template <typename ScalarType>
+using SVecvec = std::vector<std::vector<ScalarType> >;
+template <typename ScalarType>
+using SVec = std::vector<ScalarType>;
+template <typename ScalarType>
+using SCMatrix = std::vector<std::map<uint32_t, ScalarType> >;
+template <typename ScalarType>
+using VCMatrix = viennacl::compressed_matrix<ScalarType>;
+template <typename ScalarType>
+using VCMatrixPtr = std::shared_ptr<VCMatrix<ScalarType> >;
 
 class Engine
 {
 public:
     Engine() {}
 
-    template<typename ScalarType>
-    static bool runNaiveCPU( const bn::ublas::compressed_matrix<ScalarType>& laplacian,
-                             const bn::ublas::vector<ScalarType>& signal,
-                 const std::vector<std::vector<ScalarType> >& coeff,
+    template <typename ScalarType>
+    static bool runNaiveCPU( const UMatrix<ScalarType>& laplacian,
+                             const UVector<ScalarType>& signal,
+                 const SVecvec<ScalarType>& coeff,
                  std::vector<std::vector<ScalarType> >& result )
     {
         size_t nbScales = coeff.size();
@@ -82,8 +105,7 @@ public:
 
     template<typename MatrixType, typename VectorType, typename ScalarType>
     static bool runNaiveGPU( const MatrixType& laplacian, const VectorType& signal,
-                 const std::vector<std::vector<ScalarType> >& coeff,
-                 std::vector<std::vector<ScalarType> >& result )
+                 const SVecvec<ScalarType>& coeff, SVecvec<ScalarType>& result )
     {
         // Init GPU values
         size_t nbScales = coeff.size();
@@ -116,7 +138,6 @@ public:
                 else { // Recurrence relation
                     gCombLaplacian = viennacl::linalg::prod(gLaplacian, gCombLaplacian);
                 }
-//                gResult += gCombLaplacian; // temp
                 gResult += gCombLaplacian * gCoeff(i,j);
             }
 
@@ -127,68 +148,94 @@ public:
     }
 
     template<typename MatrixType, typename ScalarType>
-    static bool runGPU( const MatrixType& laplacian, const std::vector<ScalarType>& signal,
-                 const std::vector<std::vector<ScalarType> >& coeff,
-                 std::vector<std::vector<ScalarType> >& result )
+    static bool runGPU( const MatrixType& laplacian, const SVec<ScalarType>& signal,
+                 const SVecvec<ScalarType>& coeff, SVecvec<ScalarType>& result )
     {
-        typedef viennacl::vector<ScalarType> VCLVector;
-        typedef viennacl::matrix<ScalarType> VCLMatrix;
+        using namespace viennacl;
+        typedef vector<ScalarType> VCLVector;
+        typedef matrix<ScalarType> VCLMatrix;
         // Init GPU values
         size_t nbScales = coeff.size();
         size_t signalSize = signal.size();
         size_t filterOrder = coeff.at(0).size(); // tmp
 
         VCLVector gCombLaplacian(signalSize);
-        viennacl::compressed_matrix<ScalarType> gLaplacian(signalSize, signalSize);
+        VCMatrix<ScalarType> gLaplacian(signalSize, signalSize);
         VCLMatrix gCoeff(nbScales, filterOrder);
         VCLMatrix gResult(nbScales, signalSize);
         VCLVector gSignalVector(signalSize);
 
         // Copy to GPU
-        viennacl::fast_copy(signal, gSignalVector);
-        viennacl::copy(laplacian, gLaplacian);
-        viennacl::copy(coeff, gCoeff);
+        fast_copy(signal, gSignalVector);
+        copy(laplacian, gLaplacian);
+        copy(coeff, gCoeff);
 
         // First coeff
-        viennacl::range coeffRow(0, coeff.size());
-        viennacl::range coeffCol(0, 1); // 1 column only
-        viennacl::matrix_range<VCLMatrix> currentCoeffs = viennacl::project(gCoeff, coeffRow, coeffCol);
+        range coeffRow(0, coeff.size());
+        range coeffCol(0, 1); // 1 column only
+        matrix_range<VCLMatrix> currentCoeffs = project(gCoeff, coeffRow, coeffCol);
         // Init result matrix
-        gResult = viennacl::linalg::prod(currentCoeffs, VCLMatrix(gSignalVector.handle().opencl_handle(), signalSize, 1));
+        gResult = linalg::prod(currentCoeffs, VCLMatrix(gSignalVector.handle().opencl_handle(), signalSize, 1));
 
         // 2nd coeff, first Laplacian
-        gCombLaplacian = viennacl::linalg::prod(gLaplacian, gSignalVector);
+        gCombLaplacian = linalg::prod(gLaplacian, gSignalVector);
         VCLMatrix gCombLaplacianMat(gCombLaplacian.handle().opencl_handle(), 1, signalSize);
-        gResult += viennacl::linalg::prod(currentCoeffs, gCombLaplacianMat);
+        gResult += linalg::prod(currentCoeffs, gCombLaplacianMat);
 
         // 3rd coeff and above
         for( size_t i = 2; i < filterOrder; ++i ) {
             // Get current coefficients for filter order
-            viennacl::range coeffCol(i, i+1); // 1 column only
-            viennacl::matrix_range<VCLMatrix> currentCoeffs = viennacl::project(gCoeff, coeffRow, coeffCol);
+            range coeffCol(i, i+1); // 1 column only
+            matrix_range<VCLMatrix> currentCoeffs = project(gCoeff, coeffRow, coeffCol);
 
-            gCombLaplacian = viennacl::linalg::prod(gLaplacian, gCombLaplacian);
+            gCombLaplacian = linalg::prod(gLaplacian, gCombLaplacian);
             // Promote to matrix
             VCLMatrix gCombLaplacianMat(gCombLaplacian.handle().opencl_handle(), 1, signalSize);
-            gResult += viennacl::linalg::prod(currentCoeffs, gCombLaplacianMat);
+            gResult += linalg::prod(currentCoeffs, gCombLaplacianMat);
         }
-        viennacl::copy(gResult, result);
+        copy(gResult, result);
         return true;
     }
 
-    bool checkFitInGPUMem( size_t matrixSize, size_t signalSize )
+    template<typename ScalarType>
+    static VCMatrixPtr<ScalarType> copyLaplacian2GPU( const SCMatrix<ScalarType>& laplacian )
     {
-//        uint64_t inputSize = matrixSize + signalSize;
-//        LOG(logDEBUG) << "Input size: " << inputSize / (1024 * 1024) << " MB";
-//        LOG(logDEBUG) << "Max allocable: " << viennacl::ocl::current_device().max_allocable_memory() / (1024 * 1024) << " MB";
+        VCMatrixPtr<ScalarType> gLaplacian(new VCMatrix<ScalarType>(laplacian.size(), laplacian.size()));
+        viennacl::copy(laplacian, *gLaplacian);
+        return gLaplacian;
+    }
 
-//        if( inputSize > viennacl::ocl::current_device().max_allocable_memory() ) {
-//            return false;
-//        }
+    template<typename ScalarType>
+    static ScalarType getLargestEigenValue( const VCMatrixPtr<ScalarType>& gLaplacianPtr, double precision = 1e-8, int maxIter = 400 );
+
+    template<typename ScalarType>
+    static bool loadLaplacian( const std::string& filename, SCMatrix<ScalarType>& A )
+    {
+        LOG(logINFO) << "Loading graph: " << filename;
+        if( io::readMatrixMarketFile(A, filename) <= 1 ) {
+            return false;
+        }
         return true;
     }
 
 };
+
+// Template specialization
+template<>
+double Engine::getLargestEigenValue<double>( const VCMatrixPtr<double>& gLaplacianPtr, double precision, int /*maxIter*/ )
+{
+    viennacl::linalg::lanczos_tag ltag(precision, 1, 0, 20);
+    double lmax = viennacl::linalg::eig((*gLaplacianPtr), ltag).at(0) * kERROR_FACTOR; // first
+    return lmax;
+}
+
+template<>
+float Engine::getLargestEigenValue<float>( const VCMatrixPtr<float>& gLaplacianPtr, double precision, int maxIter )
+{
+    viennacl::linalg::power_iter_tag ptag(precision, maxIter);
+    float lmax = viennacl::linalg::eig(*gLaplacianPtr, ptag) * kERROR_FACTOR;
+    return lmax;
+}
 
 } // end namespace core
 } // end namespace ght
