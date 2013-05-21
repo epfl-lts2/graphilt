@@ -72,6 +72,18 @@ std::vector<ScalarType> linspace( ScalarType a, ScalarType b, int N )
     return array;
 }
 
+template <typename ScalarType>
+std::vector<ScalarType> exp( const std::vector<ScalarType>& in )
+{
+    std::vector<ScalarType> res;
+    res.reserve(in.size());
+    for( auto& v: in ) {
+        res.push_back(std::exp(v));
+    }
+    return res;
+}
+
+
 } // end namespace util
 } // end namespace ght
 
