@@ -37,11 +37,21 @@ TEST( FilterTest, waveletScales )
 
 TEST( FilterTest,  createFilt )
 {
-    auto res = FilterFactory::createFilter<float>();
-    for( auto v: res ) {
-        float q = v->apply(2.0);
-        std::cout << q << std::endl;
-    }
+    typedef float ScalarType;
+    auto res = FilterFactory::createFilter<ScalarType>(FilterFactory::MEXICAN_HAT, 1.0, 5, 20);
+//    for( auto v: res ) {
+//        float q = v->apply(2.0);
+//        std::cout << q << std::endl;
+//    }
+//    Filter<ScalarType> filt;
+//    typename Func<ScalarType>::FuncPtr scale( new ScaleFunc<ScalarType>(2.0) );
+//    typename Func<ScalarType>::FuncPtr gb( new XExpMinusFunc<ScalarType>(scale) );
+//    filt.push_back(gb);
+//    filt.push_back(gb);
+//    filt.push_back(gb);
+
+    std::cout << res[0]->apply(0.2) << std::endl;
+    std::cout << res << std::endl;
 
 }
 

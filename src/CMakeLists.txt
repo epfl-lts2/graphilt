@@ -8,6 +8,7 @@ set( SRCS
     io/parser/snap.h
     io/parsers.h
     core/Engine.h
+    core/Func.h
     core/FilterFactory.h
 )
 

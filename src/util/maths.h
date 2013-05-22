@@ -83,7 +83,6 @@ std::vector<ScalarType> exp( const std::vector<ScalarType>& in )
     return res;
 }
 
-
 } // end namespace util
 } // end namespace ght
 

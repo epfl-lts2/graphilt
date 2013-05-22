@@ -20,47 +20,11 @@
 #define GHT_FILTERFACTORY_H
 
 #include <vector>
-#include <functional>
+#include "Func.h"
 #include "util/maths.h"
 
 namespace ght {
 namespace core {
-
-template <typename ScalarType>
-class Func {
-public:
-    typedef std::shared_ptr<Func<ScalarType>> FuncPtr;
-    explicit Func() {}
-    virtual ~Func() {}
-
-    Func( FuncPtr f ): m_f(f) {}
-    ScalarType apply( ScalarType x )
-    {
-        if( m_f ) {
-            x = m_f->apply(x);
-        }
-        return op(x);
-    }
-    virtual ScalarType op( ScalarType x ) = 0;
-
-protected:
-    FuncPtr m_f;
-};
-
-template <typename ScalarType>
-ScalarType Func<ScalarType>::op( ScalarType x ) { return x; }
-
-template <typename ScalarType>
-class ExpFunc: public Func<ScalarType>
-{
-public:
-    ExpFunc(): Func<ScalarType>() {}
-    explicit ExpFunc( typename Func<ScalarType>::FuncPtr f ): Func<ScalarType>(f) {}
-    virtual ScalarType op( ScalarType x ) override
-    {
-        return static_cast<ScalarType>(std::exp(x));
-    }
-};
 
 template <typename ScalarType>
 class Filter {
@@ -72,6 +36,22 @@ public:
     typedef const typename FuncVec::const_iterator const_iterator;
     Filter() {}
     ~Filter() {}
+    Filter( const Filter& rhs )
+        : m_data(rhs.m_data)
+    {}
+
+    void swap( Filter& lhs, Filter& rhs )
+    {
+        using std::swap;
+        swap(lhs.m_data, rhs.m_data);
+    }
+
+    Filter& operator =( Filter rhs )
+    {
+        swap(*this, rhs);
+        return *this;
+    }
+
     FuncPtr& operator[]( size_t i ) { return m_data[i]; }
     const FuncPtr& operator[]( size_t i ) const { return m_data[i]; }
     void push_back( FuncPtr&& val ) { m_data.push_back(val); }
@@ -81,25 +61,56 @@ public:
     iterator end() { return m_data.end(); }
     const_iterator end() const { return m_data.end(); }
 
+    std::string print() const
+    {
+        std::string os("");
+        for( size_t i = 0; i < m_data.size(); ++i ) {
+            os += "[" + boost::lexical_cast<std::string>(i) + "]" + " " + m_data.at(i)->print() + " \n";
+        }
+        return os;
+    }
+
+
 private:
     FuncVec m_data;
 };
 
+template <typename ScalarType>
+std::ostream& operator<<( std::ostream& os, const Filter<ScalarType>& filt )
+{
+    return os << filt.print();
+}
+
 class FilterFactory {
-
 public:
-    template <typename ScalarType>
-    static Filter<ScalarType> createFilter()
-    {
-        typedef std::shared_ptr<ExpFunc<ScalarType>> ExpPtr;
-        Filter<ScalarType> filt;
-        ExpPtr expFunc(new ExpFunc<ScalarType>());
-        ExpPtr expFunc2(new ExpFunc<ScalarType>(expFunc));
-        filt.push_back(expFunc2);
 
+    enum FilterClass {
+        MEXICAN_HAT,
+        MEYER,
+        ABSPLINE3,
+        UNDEFINIED
+    };
+
+    template <typename ScalarType>
+    static Filter<ScalarType> createFilter( FilterClass type, ScalarType lmax, int Nscales, ScalarType lpFactor )
+    {
+        Filter<ScalarType> filt;
+        switch( type ) {
+            case MEXICAN_HAT:
+                filt = buildMexicanHat(lmax, Nscales, lpFactor);
+                break;
+            default:
+                break;
+        }
+
+        //        case 'meyer'
+//            t=(4/(3*lmax)) * 2.^(Nscales-1:-1:0);
+//            g{1}= @(x) sgwt_kernel_meyer(t(1)*x,'sf');
+//            for j=1:Nscales
+//                g{j+1}= @(x) sgwt_kernel_meyer(t(j)*x,'wavelet');
+//            end
         return filt;
     }
-
 
     /**
      * @brief Compute a set of wavelet scales adapted to spectrum bounds. Scales logarithmicaly spaced between minimum and maximum
@@ -127,6 +138,34 @@ public:
         // scales should be decreasing ... higher j should give larger s
         res = util::exp(util::linspace(std::log(smax), std::log(smin), N));
         return res;
+    }
+
+private:
+    template <typename ScalarType>
+    static Filter<ScalarType> buildMexicanHat( ScalarType lmax, int Nscales, ScalarType lpFactor )
+    {
+        Filter<ScalarType> filt;
+
+        // Bias term
+        // 1.2*exp(-1) * exp((-x/lminfac)^4);
+        ScalarType lmin = lmax / lpFactor;
+        ScalarType lminFac =  0.4 * lmin;
+        typename Func<ScalarType>::FuncPtr scale( new ScaleFunc<ScalarType>(-1.0/lminFac) );
+        typename Func<ScalarType>::FuncPtr powFunc(new PowFunc<ScalarType>(scale, 4));
+        typename Func<ScalarType>::FuncPtr expFunc(new ExpFunc<ScalarType>(powFunc));
+        typename Func<ScalarType>::FuncPtr gb( new ScaleFunc<ScalarType>(expFunc, 1.2*std::exp(-1)) );
+        filt.push_back(gb);
+
+        // Scales
+        std::vector<ScalarType> t = waveletScales(lmin, lmax, Nscales);
+
+        // scale[i]*x * exp(-scale[i]*x)
+        for( int i = 0; i < Nscales; ++i ) {
+            typename Func<ScalarType>::FuncPtr scale( new ScaleFunc<ScalarType>(t.at(i)) );
+            typename Func<ScalarType>::FuncPtr gb( new XExpMinusFunc<ScalarType>(scale) );
+            filt.push_back(gb);
+        }
+        return filt;
     }
 };
 
