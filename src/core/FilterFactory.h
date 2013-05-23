@@ -60,6 +60,7 @@ public:
     const_iterator begin() const { return m_data.begin(); }
     iterator end() { return m_data.end(); }
     const_iterator end() const { return m_data.end(); }
+    size_t size() const { return m_data.size(); }
 
     std::string print() const
     {
@@ -90,6 +91,61 @@ public:
         ABSPLINE3,
         UNDEFINIED
     };
+
+    /**
+     * @brief Create Chebycheff coefficients
+     * @param filter input filter
+     * @param order Maximum order for cheby coeff
+     * @param gridOrder grid order used to compute quadrature (default is order+1)
+     * @param range interval of approximation (defaults to [-1,1] )
+     * @return chebycheff coefficients, for each scale
+     */
+    template <typename ScalarType>
+    static std::vector<std::vector<ScalarType> > createChebyCoeff( const Filter<ScalarType>& filter, size_t maxOrder,
+                                                size_t gridOrder = 0,
+                                                std::pair<ScalarType, ScalarType> range = std::make_pair(-1.0, 1.0) )
+    {
+        if( gridOrder == 0 ) {
+            gridOrder = maxOrder+1;
+        }
+        ScalarType a1 = (range.second - range.first) / 2.0;
+        ScalarType a2 = (range.second + range.first) / 2.0;
+        std::pair<ScalarType, ScalarType> arange = std::make_pair(a1, a2);
+
+        std::vector<std::vector<ScalarType>> result;
+
+        // For each scale
+        for( size_t scale = 0; scale < filter.size(); ++scale ) {
+            std::vector<ScalarType> coeff;
+            coeff.reserve(maxOrder+1);
+            for( size_t order = 0; order < maxOrder+1; ++order ) {
+                coeff.push_back(chebyCoeff(filter.at(scale), order, gridOrder, arange));
+            }
+            result.push_back(coeff);
+        }
+        return result;
+    }
+
+    template <typename ScalarType>
+    static ScalarType chebyCoeff( const typename Func<ScalarType>::FuncPtr& g, size_t order,
+                                                          size_t gridOrder,
+                                                          const std::pair<ScalarType, ScalarType>& arange )
+    {
+        ScalarType t = 0.0;
+        ScalarType a1 = arange.first;
+        ScalarType a2 = arange.second;
+        const double pi = boost::math::constants::pi<double>();
+        //        c(j)=sum (g(a1* cos( (pi*((1:N)-0.5))/N) + a2).*cos(pi*(j-1)*((1:N)-.5)/N) )*2/N;
+        // a1 * cos( (pi*((1:N)-0.5))/N) + a2).* cos( pi*(j-1)*( (1:N)-.5 ) / N )
+        // Sum over gridOrder
+        for( size_t i = 1; i < gridOrder; ++i ) {
+            ScalarType t1 = a1 * cos( ( (pi * (i - 0.5)) / gridOrder) + a2);
+            ScalarType t2 = cos( (pi * (order-1) * i - 0.5 ) / gridOrder );
+            t += g(t1 * t2);
+        }
+        t = 2*t / gridOrder;
+        return t;
+    }
 
     template <typename ScalarType>
     static Filter<ScalarType> createFilter( FilterClass type, ScalarType lmax, int Nscales, ScalarType lpFactor )

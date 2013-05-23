@@ -42,16 +42,6 @@ public:
         return op(x);
     }
     virtual ScalarType op( ScalarType x ) = 0;
-//    std::ostream& operator<<( std::ostream& os )
-//    {
-//        return os;
-////        os = print(os);
-////        if( m_f ) {
-////            os = m_f->print(os);
-////        }
-
-////        return os << ")";
-//    }
     virtual std::string print() const = 0;
 
 protected:
@@ -85,7 +75,6 @@ public:
             return "exp(x)";
     }
 };
-
 
 template <typename ScalarType>
 class XExpMinusFunc: public Func<ScalarType>
@@ -198,6 +187,42 @@ public:
             return Func<ScalarType>::m_f->print();
         else
             return "x";
+    }
+};
+
+template <typename ScalarType>
+class SumFunc: public Func<ScalarType>
+{
+    int m_low;
+    int m_high;
+public:
+    typedef std::shared_ptr<SumFunc<ScalarType> > Ptr;
+    SumFunc()
+        : Func<ScalarType>()
+        , m_low(0)
+        , m_high(0)
+    {}
+
+    explicit SumFunc( typename Func<ScalarType>::FuncPtr f, int low, int high )
+        : Func<ScalarType>(f)
+        , m_low(low)
+        , m_high(high)
+    {}
+
+    virtual ScalarType op( ScalarType x ) override
+    {
+        ScalarType res = 0.0;
+        for( int i = m_low; i < m_high; ++i ) {
+            res += x;
+        }
+        return static_cast<ScalarType>(std::exp(x));
+    }
+    virtual std::string print() const override
+    {
+        if( Func<ScalarType>::m_f )
+            return "sum(" + Func<ScalarType>::m_f->print() + ")";
+        else
+            return "sum(x)";
     }
 };
 

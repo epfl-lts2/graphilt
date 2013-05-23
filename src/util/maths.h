@@ -22,6 +22,7 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
+#include <boost/math/constants/constants.hpp>
 
 namespace ght {
 namespace util {
