@@ -19,3 +19,9 @@ add_executable( Demo1 demo1.cpp )
 target_link_libraries( Demo1
     ${LIBS_TO_LINK}
 )
+
+# Downsample
+add_executable( Downsample downsample.cpp )
+target_link_libraries( Downsample
+    ${LIBS_TO_LINK}
+)

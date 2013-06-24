@@ -93,12 +93,12 @@ public:
     };
 
     /**
-     * @brief Create Chebycheff coefficients
+     * @brief Create Chebyshev coefficients
      * @param filter input filter
      * @param order Maximum order for cheby coeff
      * @param gridOrder grid order used to compute quadrature (default is order+1)
      * @param range interval of approximation (defaults to [-1,1] )
-     * @return chebycheff coefficients, for each scale
+     * @return chebyshev coefficients, for each scale, each scale has order+1 coefficients
      */
     template <typename ScalarType>
     static std::vector<std::vector<ScalarType> > createChebyCoeff( const Filter<ScalarType>& filter, size_t maxOrder,
@@ -114,13 +114,12 @@ public:
 
         std::vector<std::vector<ScalarType>> result;
 
-        // For each scale
         for( size_t scale = 0; scale < filter.size(); ++scale ) {
             std::vector<ScalarType> coeff;
             coeff.reserve(maxOrder+1);
-            for( size_t order = 0; order < maxOrder+1; ++order ) {
-                coeff.push_back(chebyCoeff(filter.at(scale), order, gridOrder, arange));
-            }
+            for( size_t order = 1; order <= maxOrder+1; ++order ) {
+                coeff.push_back(chebyCoeff(filter[scale], order, gridOrder, arange));
+            } 
             result.push_back(coeff);
         }
         return result;
@@ -135,20 +134,23 @@ public:
         ScalarType a1 = arange.first;
         ScalarType a2 = arange.second;
         const double pi = boost::math::constants::pi<double>();
-        //        c(j)=sum (g(a1* cos( (pi*((1:N)-0.5))/N) + a2).*cos(pi*(j-1)*((1:N)-.5)/N) )*2/N;
-        // a1 * cos( (pi*((1:N)-0.5))/N) + a2).* cos( pi*(j-1)*( (1:N)-.5 ) / N )
+//        t1 = a1* cos( (pi*((1:N)-0.5))/N) + a2;
+//        t2 = cos(pi*(j-1)*((1:N)-.5)/N);
+//        t3 = g(t1).* t2;
+
         // Sum over gridOrder
-        for( size_t i = 1; i < gridOrder; ++i ) {
-            ScalarType t1 = a1 * cos( ( (pi * (i - 0.5)) / gridOrder) + a2);
-            ScalarType t2 = cos( (pi * (order-1) * i - 0.5 ) / gridOrder );
-            t += g(t1 * t2);
+        for( size_t i = 1; i <= gridOrder; ++i ) {
+            ScalarType t1 = a1 * cos( (pi * (i - 0.5)) / gridOrder) + a2;
+            ScalarType t2 = cos( (pi * (order-1) * (i - 0.5)) / gridOrder ); // ok
+            ScalarType t3 = g->apply(t1)*t2;
+            t += t3;
         }
         t = 2*t / gridOrder;
         return t;
     }
 
     template <typename ScalarType>
-    static Filter<ScalarType> createFilter( FilterClass type, ScalarType lmax, int Nscales, ScalarType lpFactor )
+    static Filter<ScalarType> createFilter( FilterClass type, ScalarType lmax, int Nscales, ScalarType lpFactor = 20.0 )
     {
         Filter<ScalarType> filt;
         switch( type ) {
@@ -203,24 +205,25 @@ private:
         Filter<ScalarType> filt;
 
         // Bias term
-        // 1.2*exp(-1) * exp((-x/lminfac)^4);
+//        g{1} = @(x) 1.2*exp(-1) * exp( -((x/lminfac).^4) );
         ScalarType lmin = lmax / lpFactor;
         ScalarType lminFac =  0.4 * lmin;
-        typename Func<ScalarType>::FuncPtr scale( new ScaleFunc<ScalarType>(-1.0/lminFac) );
+        typename Func<ScalarType>::FuncPtr scale( new ScaleFunc<ScalarType>(1/lminFac) );
         typename Func<ScalarType>::FuncPtr powFunc(new PowFunc<ScalarType>(scale, 4));
-        typename Func<ScalarType>::FuncPtr expFunc(new ExpFunc<ScalarType>(powFunc));
+        typename Func<ScalarType>::FuncPtr minus( new MinusFunc<ScalarType>(powFunc) );
+        typename Func<ScalarType>::FuncPtr expFunc(new ExpFunc<ScalarType>(minus));
         typename Func<ScalarType>::FuncPtr gb( new ScaleFunc<ScalarType>(expFunc, 1.2*std::exp(-1)) );
         filt.push_back(gb);
 
         // Scales
         std::vector<ScalarType> t = waveletScales(lmin, lmax, Nscales);
-
         // scale[i]*x * exp(-scale[i]*x)
         for( int i = 0; i < Nscales; ++i ) {
             typename Func<ScalarType>::FuncPtr scale( new ScaleFunc<ScalarType>(t.at(i)) );
             typename Func<ScalarType>::FuncPtr gb( new XExpMinusFunc<ScalarType>(scale) );
             filt.push_back(gb);
         }
+
         return filt;
     }
 };

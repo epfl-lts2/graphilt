@@ -37,6 +37,9 @@ namespace util {
 template <typename ScalarType>
 std::vector<ScalarType> linspace( ScalarType a, ScalarType b, int N )
 {
+    // Upcast
+    double A = a;
+    double B = b;
     std::vector<ScalarType> array;
     if( N <= 0 ) {
         return array;
@@ -44,30 +47,30 @@ std::vector<ScalarType> linspace( ScalarType a, ScalarType b, int N )
 
     array.reserve(N);
     if( N == 1 ) {
-        array.push_back(b);
+        array.push_back(B);
     }
     else if( N == 2 ) {
-        array.push_back(a);
-        array.push_back(b);
+        array.push_back(A);
+        array.push_back(B);
 
     }
     else {
-        double step = std::fabs(b-a) / (N-1);
-        if( a <= b ) {
-            while( a <= b ) {
-                array.push_back(a);
-                a += step;
+        double step = std::fabs(B-A) / (N-1);
+        if( A <= B ) {
+            while( A <= B ) {
+                array.push_back(A);
+                A += step;
             }
-            if( a < b )
-                array.push_back(b);
+            if( A < B )
+                array.push_back(B);
         }
         else {
-            while( a >= b ) {
-                array.push_back(a);
-                a -= step;
+            while( A >= B ) {
+                array.push_back(A);
+                A -= step;
             }
-            if( a > b )
-                array.push_back(b);
+            if( A > B )
+                array.push_back(B);
         }
     }
     return array;
@@ -83,6 +86,15 @@ std::vector<ScalarType> exp( const std::vector<ScalarType>& in )
     }
     return res;
 }
+
+template <typename ScalarType>
+void addInPlace( std::vector<ScalarType>& inout, const std::vector<ScalarType>& rhs )
+{
+    for( size_t i = 0; i < inout.size(); ++i ) {
+        inout[i] += rhs.at(i);
+    }
+}
+
 
 } // end namespace util
 } // end namespace ght

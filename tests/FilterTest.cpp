@@ -30,29 +30,23 @@ TEST( FilterTest, waveletScales )
     auto res = FilterFactory::waveletScales(1.0, 20.0, 5);
     EXPECT_EQ(res[0], 2.0);
     EXPECT_EQ(float(res[4]), float(0.05) );
-    for( auto v: res ) {
-        std::cout << v << std::endl;
-    }
+//    for( auto v: res ) {
+//        std::cout << v << std::endl;
+//    }
 }
 
 TEST( FilterTest,  createFilt )
 {
-    typedef float ScalarType;
-    auto res = FilterFactory::createFilter<ScalarType>(FilterFactory::MEXICAN_HAT, 1.0, 5, 20);
-//    for( auto v: res ) {
-//        float q = v->apply(2.0);
-//        std::cout << q << std::endl;
-//    }
-//    Filter<ScalarType> filt;
-//    typename Func<ScalarType>::FuncPtr scale( new ScaleFunc<ScalarType>(2.0) );
-//    typename Func<ScalarType>::FuncPtr gb( new XExpMinusFunc<ScalarType>(scale) );
-//    filt.push_back(gb);
-//    filt.push_back(gb);
-//    filt.push_back(gb);
-
-    std::cout << res[0]->apply(0.2) << std::endl;
-    std::cout << res << std::endl;
-
+    typedef double ScalarType;
+    ScalarType lmax = 8.0;
+    int nbScale = 1;
+    auto res = FilterFactory::createFilter<ScalarType>(FilterFactory::MEXICAN_HAT, lmax, nbScale);
+    auto val = FilterFactory::createChebyCoeff(res, 5, 0, std::make_pair(0.0, lmax));
+    for( auto& elem: val ) {
+        for( auto& elem2: elem )
+            std::cout << elem2 << " ";
+        std::cout << "\n" << std::endl;
+    }
 }
 
 
