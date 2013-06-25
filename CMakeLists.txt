@@ -23,6 +23,8 @@ option( BUILD_TESTS "Build the test suite" ON )
 option( BUILD_TOOLS "Build standard tools" ON )
 option( BUILD_DOC "Build documentation" ON )
 option( BUILD_SHARED_LIBS "Build as shared LIBRARY" ON )
+option( BUILD_PYTHON_INTERFACE "Build Python interface" ON )
+option( USE_DEFAULT_PYTHON "Use system default python" OFF )
 
 #### LIBS
 
@@ -36,10 +38,15 @@ else()
 endif( ${CMAKE_SYSTEM_NAME} MATCHES "Darwin" )
 
 # Boost
-set( Boost_USE_STATIC_LIBS ON )
 set( Boost_USE_MULTITHREADED ON )
-find_package( Boost REQUIRED )
-#find_package( Boost COMPONENTS thread filesystem system graph serialization REQUIRED )
+if( NOT BUILD_PYTHON_INTERFACE )
+    set( Boost_USE_STATIC_LIBS ON )
+    find_package( Boost REQUIRED )
+else()
+    set( Boost_USE_STATIC_LIBS OFF )
+    set( Boost_USE_STATIC_RUNTIME OFF )
+    find_package( Boost COMPONENTS python REQUIRED )
+endif()
 include_directories( ${Boost_INCLUDE_DIRS} )
 
 # ViennaCL
@@ -48,7 +55,7 @@ add_definitions( -DVIENNACL_WITH_OPENCL )
 include_directories( ${3RDPARTY_DIR}/include/ )
 
 # Eigen
-find_package(Eigen3 REQUIRED)
+find_package( Eigen3 REQUIRED )
 include_directories( ${EIGEN3_INCLUDE_DIR} )
 
 #### GENERAL OPTIONS
@@ -70,14 +77,19 @@ if( NOT EXISTS ${RES_DIR} )
     file( MAKE_DIRECTORY ${RES_DIR} )
 endif()
 
+# Definitions
 if( CMAKE_BUILD_TYPE STREQUAL "Release" )
 #    add_definitions( -DQT_NO_DEBUG )
 #    add_definitions( -DQT_NO_DEBUG_OUTPUT )
-    add_definitions(-DNDEBUG)
+    add_definitions( -DNDEBUG )
     add_definitions( -O3 )
 elseif( CMAKE_BUILD_TYPE STREQUAL "Debug" )
     add_definitions( -DQT_DEBUG )
     add_definitions( -DGHT_DEBUG )
+endif()
+
+if( BUILD_PYTHON_INTERFACE )
+    add_definitions( -DGHT_WITH_PYTHON )
 endif()
 
 #### COMPILER SPECIFICS
@@ -85,8 +97,10 @@ message( STATUS "Using ${CMAKE_CXX_COMPILER_ID}" )
 add_definitions( -Wall -Wextra -Wno-unused-parameter -Wdeprecated-declarations )
 # C++11
 add_definitions(-std=c++11) #-std=c++11 std=gnu++11
-add_definitions(-stdlib=libc++) #stdlib=libstdc++ for gcc 4.2.1 includes ..
-set( LIBCPLUSPLUS "-stdlib=libc++" )
+if( APPLE )
+    add_definitions(-stdlib=libc++) #stdlib=libstdc++ for gcc 4.2.1 includes ..
+    set( LIBCPLUSPLUS "-stdlib=libc++" )
+endif()
 
 if( BUILD_SHARED_LIBS )
 #    add_definitions( -force_load ) # load all symbols static libraries even if hidden
@@ -99,6 +113,10 @@ endif()
 
 # SOURCES
 add_subdirectory( src )
+
+if( BUILD_PYTHON_INTERFACE )
+    add_subdirectory( python )
+endif()
 
 # TOOLS
 if( BUILD_TOOLS )
