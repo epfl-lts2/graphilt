@@ -45,14 +45,14 @@ std::vector<ScalarType> genSignal( int size )
 
 } // end namespace anonymous
 
-static const int kNBSCALES = 5;
+static const int kNBSCALES = 1;
 static const int kFILTERORDER = 8;
 //static const std::string kGRAPHPATH = "../resources/as-skitter.txt.mtx";
 //static const std::string kGRAPHPATH = "../resources/com-lj.ungraph.txt.mtx";
 //static const std::string kGRAPHPATH = "../resources/randomregular-10000-50.mtx";
 //static const std::string kGRAPHPATH = "../resources/randomregular-2000-30.mtx";
-//static const std::string kGRAPHPATH = "../resources/comet-10000-50.mtx";
-static const std::string kGRAPHPATH = "../resources/paques.mtx";
+static const std::string kGRAPHPATH = "../resources/comet-10000-50.mtx";
+//static const std::string kGRAPHPATH = "../resources/paques.mtx";
 
 int main( int argc, char *argv[] )
 {

@@ -10,9 +10,12 @@ set( ${PROJECT_NAME}_VERSION "${${PROJECT_NAME}_MAJOR_VERSION}.${${PROJECT_NAME}
 set( PROJECT_VERSION ${${PROJECT_NAME}_VERSION} )
 set( PROJECT_SOVERSION ${${PROJECT_NAME}_MAJOR_VERSION} )
 
+cmake_policy(SET CMP0026 OLD)
+cmake_policy(SET CMP0042 NEW)
+
 # Always include the source and build directories in the include path
 # to save doing so manually in every subdirectory.
-SET( CMAKE_INCLUDE_CURRENT_DIR ON )
+set( CMAKE_INCLUDE_CURRENT_DIR ON )
 # CMAKE_MODULE_PATH
 set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/" )
 # 3rd Party dir
@@ -23,7 +26,7 @@ option( BUILD_TESTS "Build the test suite" ON )
 option( BUILD_TOOLS "Build standard tools" ON )
 option( BUILD_DOC "Build documentation" ON )
 option( BUILD_SHARED_LIBS "Build as shared LIBRARY" ON )
-option( BUILD_PYTHON_INTERFACE "Build Python interface" ON )
+option( BUILD_PYTHON_INTERFACE "Build Python interface" OFF )
 option( USE_DEFAULT_PYTHON "Use system default python" OFF )
 
 #### LIBS
@@ -41,11 +44,11 @@ endif( ${CMAKE_SYSTEM_NAME} MATCHES "Darwin" )
 set( Boost_USE_MULTITHREADED ON )
 if( NOT BUILD_PYTHON_INTERFACE )
     set( Boost_USE_STATIC_LIBS ON )
-    find_package( Boost REQUIRED )
+    find_package( Boost COMPONENTS graph REQUIRED )
 else()
     set( Boost_USE_STATIC_LIBS OFF )
     set( Boost_USE_STATIC_RUNTIME OFF )
-    find_package( Boost COMPONENTS python REQUIRED )
+    find_package( Boost COMPONENTS python graph REQUIRED )
 endif()
 include_directories( ${Boost_INCLUDE_DIRS} )
 

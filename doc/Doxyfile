@@ -1,7 +1,7 @@
 PROJECT_NAME = "graphilt"
 PROJECT_NUMBER = "0.1.0"
-OUTPUT_DIRECTORY = /Users/kikohs/work/graphilt/build/doc
-INPUT = /Users/kikohs/work/graphilt/src /Users/kikohs/work/graphilt/tests
+OUTPUT_DIRECTORY = /Users/kikohs/work/pro/graphilt/build/doc
+INPUT = /Users/kikohs/work/pro/graphilt/src /Users/kikohs/work/pro/graphilt/tests
 EXTRACT_ALL = yes
 EXTRACT_PRIVATE = yes
 EXTRACT_STATIC = yes
